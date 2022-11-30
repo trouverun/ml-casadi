@@ -17,7 +17,7 @@ import casadi as ca
 import numpy as np
 import torch
 
-inputs = torch.stack([torch.linspace(-1, 1, 100), torch.linspace(-1, 1, 100)], dim=1)inputs = torch.as_tensor(inputs)
+inputs = torch.stack([torch.linspace(-1, 1, 100), torch.linspace(-1, 1, 100)], dim=1)
 outputs = torch.stack([5*torch.sin(x[:, 0]), 5*torch.cos(x[:, 1])], dim=1)
 
 # Model is trained when instantiated:
