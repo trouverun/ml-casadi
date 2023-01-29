@@ -15,7 +15,6 @@ def batched_jacobian(func: Callable, inputs: torch.Tensor, create_graph=False, r
     Returns:Jacobian
 
     """
-
     inputs.requires_grad = True
     func_output_storage = []
 

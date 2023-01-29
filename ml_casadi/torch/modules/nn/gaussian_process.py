@@ -48,13 +48,14 @@ class GPModel(TorchMLCasadiModule):
         self.model.eval()
 
     # Ugly hacks to unify the api between NN/GP:
-    def approx(self, x: cs.MX, order=1, gp_model=None):
-        return super().approx(x, order, gp_model=True)
+    def approx(self, x: cs.MX, order=1, gp_model=False, weakening_cutoff=0, weakening_strength=1, difference_weights=None):
+        return super().approx(x, order, gp_model=True, weakening_cutoff=weakening_cutoff, weakening_strength=weakening_strength, difference_weights=difference_weights)
     def sym_approx_params(self, flat=False, order=1, gp_model=None):
         return super().sym_approx_params(flat, order, gp_model=True)
     def approx_params(self, a, flat=False, order=1, gp_model=None):
         return super().approx_params(a, flat, order, gp_model=True)
 
     def forward(self, x):
-        out = self.likelihood(self.model(x))
-        return torch.stack([out.mean, out.stddev], dim=1)
+        with gpytorch.settings.fast_pred_var():
+            out = self.likelihood(self.model(x))
+            return torch.stack([out.mean, out.stddev], dim=1)

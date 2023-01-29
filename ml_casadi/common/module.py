@@ -155,35 +155,39 @@ class MLCasadiModule:
 
             return [a, mu_f_a, std_f_a, mu_df_a, std_df_a] + mu_ddf_as + std_ddf_as
 
-    def approx(self, x: cs.MX, order=1, gp_model=False):
+    def approx(self, x: cs.MX, order=1, gp_model=False, weakening_cutoff=0, weakening_strength=1, difference_weights=None):
         """
         Approximation using first or second order Taylor Expansion
         """
         approx_mx_params = self.sym_approx_params(order=order, gp_model=gp_model)
+        a = approx_mx_params[0]
+        x_minus_a = x - a
+        if difference_weights is None:
+            weakening_term = 1
+        else:
+            assert len(difference_weights) == a.size1()
+            diff = cs.sum1(cs.sqrt((difference_weights * x_minus_a) ** 2))
+            weakening_term = 1 + (diff > weakening_cutoff) * weakening_strength * (diff - weakening_cutoff)**2
         if not gp_model:
-            a = approx_mx_params[0]
             f_f_a = approx_mx_params[1]
             f_df_a = approx_mx_params[2]
-            x_minus_a = x - a
             if order == 1:
-                return f_f_a + cs.mtimes(f_df_a, x_minus_a)
+                return (f_f_a + cs.mtimes(f_df_a, x_minus_a)) / weakening_term
             else:
                 f_ddf_as = approx_mx_params[3:]
                 second_order_term = 0.5 * cs.vcat([cs.mtimes(cs.transpose(x_minus_a), cs.mtimes(f_ddf_a, x_minus_a)) for f_ddf_a in f_ddf_as])
-
                 return (f_f_a
                         + cs.mtimes(f_df_a, x_minus_a)
-                        + second_order_term)
+                        + second_order_term) / weakening_term
         else:
-            a = approx_mx_params[0]
             mu_f_f_a = approx_mx_params[1]
             std_f_f_a = approx_mx_params[2]
             mu_f_df_a = approx_mx_params[3]
             std_f_df_a = approx_mx_params[4]
-            x_minus_a = x - a
+
             if order == 1:
                 return cs.horzcat(
-                    mu_f_f_a + cs.mtimes(mu_f_df_a, x_minus_a),
+                    (mu_f_f_a + cs.mtimes(mu_f_df_a, x_minus_a)) / weakening_term,
                     std_f_f_a + cs.mtimes(std_f_df_a, x_minus_a)
                 ).T
             else:
@@ -193,7 +197,7 @@ class MLCasadiModule:
                 std_second_order_term = 0.5 * cs.vcat([cs.mtimes(cs.transpose(x_minus_a), cs.mtimes(f_ddf_a, x_minus_a)) for f_ddf_a in std_f_ddf_as])
 
                 return cs.horzcat(
-                    mu_f_f_a + cs.mtimes(mu_f_df_a, x_minus_a) + mu_second_order_term,
+                    (mu_f_f_a + cs.mtimes(mu_f_df_a, x_minus_a) + mu_second_order_term) / weakening_term,
                     std_f_f_a + cs.mtimes(std_f_df_a, x_minus_a) + std_second_order_term
                 ).T
 

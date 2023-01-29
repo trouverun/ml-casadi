@@ -1,3 +1,5 @@
+import time
+
 import torch
 
 from ml_casadi.common import MLCasadiModule
