@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 import torch
 import casadi as cs
@@ -6,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 def target_fun(x):
-    return torch.stack([5*torch.sin(x[:, 0]), 5*torch.cos(x[:, 1])], dim=1)
+    return torch.stack([5*torch.sin(2*x[:, 0]), 5*torch.cos(2*x[:, 1])], dim=1)
 
 
 def example():
@@ -15,22 +17,32 @@ def example():
     inputs = torch.stack([torch.linspace(-1, 1, 100), torch.linspace(-1, 1, 100)], dim=1)
     targets = target_fun(inputs)
 
+    wc = 1
+    ws = 2
+    ww = np.ones(2)
+
     model2 = mc.nn.GPModel(inputs, targets, input_size=2, output_size=2, device="cuda:0")
-    casadi_lin_approx_sym_out = model2.approx(casadi_sym_inp, order=1)
+    casadi_lin_approx_sym_out = model2.approx(casadi_sym_inp, order=1, weakening_cutoff=wc, weakening_strength=ws, difference_weights=ww)
     casadi_lin_approx_func = cs.Function('model2_lin',
                                          [casadi_sym_inp,
                                           model2.sym_approx_params(flat=True, order=1)],
                                          [casadi_lin_approx_sym_out])
     lin_i = np.random.randint(0, len(inputs))
     lin_p = inputs[lin_i]
+    t1 = time.time_ns()
     casadi_lin_approx_param = model2.approx_params(flat=True, order=1, a=lin_p.unsqueeze(0).numpy())
+    t2 = time.time_ns()
+    print("Took %d ms for 1st order taylor" % ((t2-t1)/1e6))
 
-    casadi_quad_approx_sym_out = model2.approx(casadi_sym_inp, order=2)
+    casadi_quad_approx_sym_out = model2.approx(casadi_sym_inp, order=2, weakening_cutoff=wc, weakening_strength=ws, difference_weights=ww)
     casadi_quad_approx_func = cs.Function('model2_quad',
                                           [casadi_sym_inp,
                                            model2.sym_approx_params(flat=True, order=2)],
                                           [casadi_quad_approx_sym_out])
+    t1 = time.time_ns()
     casadi_quad_approx_param = model2.approx_params(flat=True, order=2, a=lin_p.unsqueeze(0).numpy())
+    t2 = time.time_ns()
+    print("Took %d ms for 2nd order taylor" % ((t2-t1)/1e6))
 
     casadi_lin_out = []
     casadi_quad_out = []
